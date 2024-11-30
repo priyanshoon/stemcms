@@ -20,11 +20,17 @@ func RegisterUser(db *gorm.DB) func(c echo.Context) error {
 			})
 		}
 
+		password, err := GenerateHash([]byte(u.Password))
+
+		if err != nil {
+			panic(err)
+		}
+
 		user := &database.User{
 			Name:     u.Name,
 			Username: u.Username,
 			Email:    u.Email,
-			Password: u.Password,
+			Password: string(password),
 		}
 
 		userExist := db.Where("username = ?", user.Username).First(&u)
@@ -62,27 +68,22 @@ func LoginUser(db *gorm.DB) func(c echo.Context) error {
 
 		user := &database.User{
 			Username: u.Username,
-			Email:    u.Email,
+			Password: u.Password,
 		}
 
-		userExist := db.Where("username = ?", user.Username).First(&u)
+		var userr database.User
+		db.First(&userr, "username = ?", user.Username)
 
-		if userExist.Error != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"message": "Username not found!",
+		mainPassword := ComparePass([]byte(userr.Password), []byte(user.Password))
+
+		if userr.Username == user.Username && mainPassword {
+			return c.JSON(http.StatusOK, map[string]string{
+				"message": "Login Successfull",
 			})
 		}
 
-		emailExist := db.Where("username = ?", user.Username).First(&u)
-
-		if emailExist.Error != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"message": "Email not found!",
-			})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{
-			"message": "Login Successfull",
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"message": "Invalid Username or Password",
 		})
 	}
 }
